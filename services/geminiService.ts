@@ -1,13 +1,14 @@
 import { SentimentAnalysisResult } from "../types";
 
-// Safely attempt to retrieve the API key.
-const getApiKey = (): string | undefined => {
-  try {
-    return process.env.API_KEY;
-  } catch (error) {
-    console.warn("Unable to access process.env. API_KEY might be missing.");
-    return undefined;
-  }
+// Helper to get the API key. 
+// In a real production app, use process.env.API_KEY. 
+// For this deployment as requested, we use the provided key directly as a fallback.
+const getApiKey = (): string => {
+  const envKey = process.env.API_KEY;
+  if (envKey) return envKey;
+  
+  // Return the user-provided key for immediate functionality
+  return "804120bff7a84de08a9e0171f379675e.qUEUWBGufUGMtlLi";
 };
 
 const apiKey = getApiKey();
@@ -50,21 +51,16 @@ const jsonStructure = `{
 export const analyzeTextSentiment = async (text: string): Promise<SentimentAnalysisResult> => {
   // 1. Validation
   if (!apiKey) {
-    throw new Error("未配置 API Key。请在环境变量中设置 API_KEY。");
-  }
-
-  // Zhipu keys usually contain a dot (id.secret)
-  if (!apiKey.includes('.')) {
-     console.warn("警告: 您输入的 Key 看起来不像智谱 AI 的 Key (通常格式为 id.secret)。");
+    throw new Error("未配置 API Key。");
   }
 
   // 2. Construct the Prompt
-  // Zhipu works best with a clear system instruction and a user message.
   const systemPrompt = `你是一个高级文本情绪与政治倾向分析引擎。
 请分析用户提供的文本。
 无论原文是什么语言，结果中的所有文本字段**必须**翻译成**简体中文**。
 
-你必须严格只返回有效的 JSON 格式，不要包含 markdown 代码块标记（如 \`\`\`json），不要包含任何额外的解释文字。
+你必须严格只返回有效的 JSON 格式。
+不要包含任何开场白、结束语或 markdown 标记（如 \`\`\`json）。只返回纯 JSON 字符串。
 
 输出的 JSON 必须严格符合以下结构：
 ${jsonStructure}
@@ -77,7 +73,6 @@ ${jsonStructure}
 
   try {
     // 3. Call Zhipu AI API (OpenAI Compatible Endpoint)
-    // Using the GLM-4-Flash model which is fast and cost-effective, or GLM-4 for higher quality
     const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
       method: "POST",
       headers: {
@@ -85,7 +80,7 @@ ${jsonStructure}
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "glm-4-flash", // You can switch to "glm-4" for better reasoning if needed
+        model: "glm-4-flash",
         messages: [
           {
             role: "system",
@@ -107,7 +102,7 @@ ${jsonStructure}
       
       // Handle specific auth error
       if (response.status === 401) {
-         throw new Error("API Key 无效或已过期 (401 Unauthorized)。请检查您的 API_KEY 是否正确配置。");
+         throw new Error("API Key 无效或已过期 (401 Unauthorized)。请检查 API 配置。");
       }
 
       throw new Error(`智谱 API 请求失败: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
@@ -122,8 +117,17 @@ ${jsonStructure}
       throw new Error("API 返回内容为空");
     }
 
-    // Clean up potential markdown formatting if the model adds it despite instructions
-    const cleanJson = content.replace(/```json\n?|```/g, "").trim();
+    // Robust JSON extraction: Find the substring between the first '{' and the last '}'
+    let cleanJson = content;
+    const firstBrace = content.indexOf('{');
+    const lastBrace = content.lastIndexOf('}');
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanJson = content.substring(firstBrace, lastBrace + 1);
+    } else {
+      // Fallback cleanup if braces aren't found clearly (rare)
+      cleanJson = content.replace(/```json\n?|```/g, "").trim();
+    }
 
     try {
       return JSON.parse(cleanJson) as SentimentAnalysisResult;
