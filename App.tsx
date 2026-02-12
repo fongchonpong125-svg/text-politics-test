@@ -45,7 +45,7 @@ const ROCFlag = () => (
   </svg>
 );
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [inputText, setInputText] = useState<string>('');
   const [result, setResult] = useState<SentimentAnalysisResult | null>(null);
   const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
@@ -98,7 +98,7 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ROCFlag />
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">SentimentScope <span className="text-indigo-600">Pro</span></h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">political stand by <span className="text-indigo-600">FCP</span></h1>
           </div>
           <div className="text-sm text-slate-500 hidden sm:block font-medium">
             由 Gemini 3 Flash 模型驱动
@@ -339,5 +339,3 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;

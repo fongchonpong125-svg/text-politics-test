@@ -1,5 +1,7 @@
 import React from 'react';
 import { ExtendedPoliticalAnalysis } from '../types';
+import { Globe2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface ExtendedCompassProps {
   data: ExtendedPoliticalAnalysis;
@@ -48,16 +50,71 @@ const AxisRow = ({
 };
 
 const ExtendedPoliticalCompass: React.FC<ExtendedCompassProps> = ({ data }) => {
+  const chartData = [
+    { name: data.closestWorldParty, value: data.globalPercentage },
+    { name: '其他', value: Math.max(0, 100 - data.globalPercentage) },
+  ];
+
+  const COLORS = ['#4f46e5', '#cbd5e1']; // Indigo-600 vs Slate-300
+
   return (
     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 h-full">
       <div className="text-center mb-6 border-b border-slate-200 pb-4">
         <h4 className="text-xl font-black text-slate-800 tracking-tight">深度政治光谱 (LeftValues)</h4>
-        <div className="mt-2 flex flex-col items-center">
-             <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">匹配现实政党</p>
-             <p className="text-lg font-bold text-indigo-700 bg-indigo-50 px-4 py-1 rounded-lg border border-indigo-100">
-               {data.closestWorldParty}
-             </p>
-             <p className="text-xs text-slate-500 mt-2 italic max-w-md">"{data.closestWorldPartyReason}"</p>
+        
+        <div className="mt-4 flex flex-col items-center">
+             <p className="text-xs text-slate-400 uppercase tracking-wider mb-4">匹配现实政党</p>
+             
+             <div className="flex flex-col sm:flex-row items-center justify-center gap-8 w-full">
+                 {/* Party Name & Reason */}
+                 <div className="flex flex-col items-center sm:items-end flex-1">
+                    <p className="text-xl font-bold text-indigo-700 bg-indigo-50 px-5 py-2 rounded-lg border border-indigo-100 shadow-sm mb-2 text-center sm:text-right">
+                      {data.closestWorldParty}
+                    </p>
+                    <p className="text-xs text-slate-500 italic max-w-[220px] text-center sm:text-right leading-relaxed bg-white/50 p-2 rounded">
+                      "{data.closestWorldPartyReason}"
+                    </p>
+                 </div>
+
+                 {/* Vertical Divider (Hidden on mobile) */}
+                 <div className="hidden sm:block w-px h-24 bg-slate-200"></div>
+
+                 {/* Pie Chart Section */}
+                 <div className="flex flex-col items-center sm:items-start flex-1">
+                    <div className="w-28 h-28 relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={chartData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={30}
+                                    outerRadius={45}
+                                    fill="#8884d8"
+                                    paddingAngle={2}
+                                    dataKey="value"
+                                    stroke="none"
+                                >
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                                   formatter={(value: number) => [`${value}%`, '占比']}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        {/* Center Text */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col">
+                            <span className="text-lg font-black text-indigo-700 leading-none">{data.globalPercentage}%</span>
+                        </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold flex items-center gap-1 mt-1 pl-1">
+                      <Globe2 className="w-3 h-3" /> 全球影响占比
+                    </span>
+                 </div>
+             </div>
         </div>
       </div>
 

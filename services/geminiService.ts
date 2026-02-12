@@ -177,9 +177,10 @@ export const analyzeTextSentiment = async (text: string): Promise<SentimentAnaly
             required: ["leftScore", "rightScore", "label"]
           },
           closestWorldParty: { type: Type.STRING, description: "世界上最符合该文本政治倾向的现实政党名称（例如：中国共产党、美国民主党、英国工党等）。必须使用简体中文。" },
-          closestWorldPartyReason: { type: Type.STRING, description: "简短说明为什么匹配该政党。" }
+          closestWorldPartyReason: { type: Type.STRING, description: "简短说明为什么匹配该政党。" },
+          globalPercentage: { type: Type.INTEGER, description: "估算该政党或其代表的意识形态在世界范围内的支持率、影响力或大致占比（0-100的整数）。" }
         },
-        required: ["revolution", "scientific", "central", "international", "party", "production", "conservative", "closestWorldParty", "closestWorldPartyReason"]
+        required: ["revolution", "scientific", "central", "international", "party", "production", "conservative", "closestWorldParty", "closestWorldPartyReason", "globalPercentage"]
       }
     },
     required: ["overallScore", "sentimentLabel", "emotionalTone", "authorStance", "coreIntent", "summary", "positiveKeyPoints", "negativeKeyPoints", "suggestedResponse", "timeline", "politicalAnalysis", "extendedPoliticalAnalysis"],
@@ -193,7 +194,7 @@ export const analyzeTextSentiment = async (text: string): Promise<SentimentAnaly
       重点要求：
       1. 准确识别作者的立场和核心意图。
       2. 进行多维度的政治倾向分析（包含基础 8values 和深度 LeftValues 7轴分析）。即使文本看起来是非政治性的（如商业评论），也请尝试挖掘其潜在的价值观（如：支持市场 vs 支持监管，支持传统 vs 支持创新），如果完全无法判断，请保持中立（50/50）。
-      3. 匹配一个现实世界中的政党。
+      3. 匹配一个现实世界中的政党，并估算该政党/意识形态在全球范围内的影响力占比。
       
       待分析文本：\n${text}`,
       config: {

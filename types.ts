@@ -28,6 +28,7 @@ export interface ExtendedPoliticalAnalysis {
   conservative: PoliticalAxis; // 保守 vs 进步
   closestWorldParty: string; // The real-world political party that matches this text
   closestWorldPartyReason: string; // Brief reason why this party fits
+  globalPercentage: number; // Estimated percentage of global prevalence/influence
 }
 
 export interface SentimentAnalysisResult {
