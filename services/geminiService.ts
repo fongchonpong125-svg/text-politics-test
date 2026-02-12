@@ -1,216 +1,140 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { SentimentAnalysisResult } from "../types";
 
-const apiKey = process.env.API_KEY;
+// Safely attempt to retrieve the API key.
+const getApiKey = (): string | undefined => {
+  try {
+    return process.env.API_KEY;
+  } catch (error) {
+    console.warn("Unable to access process.env. API_KEY might be missing.");
+    return undefined;
+  }
+};
 
-if (!apiKey) {
-  console.error("API_KEY is missing from environment variables");
-}
+const apiKey = getApiKey();
 
-const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+// Define the expected JSON structure for the prompt to ensure GLM follows it
+const jsonStructure = `{
+  "overallScore": number (-100 to 100),
+  "sentimentLabel": string (e.g. "积极"),
+  "emotionalTone": string,
+  "authorStance": string,
+  "coreIntent": string,
+  "summary": string,
+  "positiveKeyPoints": string[],
+  "negativeKeyPoints": string[],
+  "suggestedResponse": string,
+  "timeline": [
+    { "segmentSummary": string, "score": number }
+  ],
+  "politicalAnalysis": {
+    "economic": { "leftScore": number, "rightScore": number, "label": string },
+    "diplomatic": { "leftScore": number, "rightScore": number, "label": string },
+    "civil": { "leftScore": number, "rightScore": number, "label": string },
+    "societal": { "leftScore": number, "rightScore": number, "label": string },
+    "ideology": string
+  },
+  "extendedPoliticalAnalysis": {
+    "revolution": { "leftScore": number, "rightScore": number, "label": string },
+    "scientific": { "leftScore": number, "rightScore": number, "label": string },
+    "central": { "leftScore": number, "rightScore": number, "label": string },
+    "international": { "leftScore": number, "rightScore": number, "label": string },
+    "party": { "leftScore": number, "rightScore": number, "label": string },
+    "production": { "leftScore": number, "rightScore": number, "label": string },
+    "conservative": { "leftScore": number, "rightScore": number, "label": string },
+    "closestWorldParty": string,
+    "closestWorldPartyReason": string,
+    "globalPercentage": number
+  }
+}`;
 
 export const analyzeTextSentiment = async (text: string): Promise<SentimentAnalysisResult> => {
-  const modelId = "gemini-3-flash-preview";
+  // 1. Validation
+  if (!apiKey) {
+    throw new Error("未配置 API Key。请在环境变量中设置 API_KEY。");
+  }
 
-  const responseSchema: Schema = {
-    type: Type.OBJECT,
-    properties: {
-      overallScore: {
-        type: Type.INTEGER,
-        description: "总体情绪得分，整数，范围从 -100（极度消极）到 100（极度积极）。",
-      },
-      sentimentLabel: {
-        type: Type.STRING,
-        description: "简短的情绪标签（例如：积极、中性、消极）。必须使用简体中文。",
-      },
-      emotionalTone: {
-        type: Type.STRING,
-        description: "主要情绪基调（例如：愤怒、快乐、专业、讽刺）。必须使用简体中文。",
-      },
-      authorStance: {
-        type: Type.STRING,
-        description: "推测作者的立场或身份（例如：'不满的客户'、'中立观察者'、'狂热支持者'）。必须使用简体中文。",
-      },
-      coreIntent: {
-        type: Type.STRING,
-        description: "作者的核心意图或诉求（例如：'寻求退款'、'表达感谢'、'提出建议'）。必须使用简体中文。",
-      },
-      summary: {
-        type: Type.STRING,
-        description: "对文本内容的简明摘要。无论原文为何种语言，必须使用简体中文。",
-      },
-      positiveKeyPoints: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "文本中提到的关键积极方面或观点列表。必须使用简体中文。",
-      },
-      negativeKeyPoints: {
-        type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "文本中提到的关键消极方面或观点列表。必须使用简体中文。",
-      },
-      suggestedResponse: {
-        type: Type.STRING,
-        description: "根据情绪得分生成一段得体、专业的回复建议。必须使用简体中文。",
-      },
-      timeline: {
-        type: Type.ARRAY,
-        description: "将文本分解为 10-20 个连续的逻辑片段，以显示情绪随时间的变化。",
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            segmentSummary: { type: Type.STRING, description: "该文本片段的非常简短的 3-5 字标签。必须使用简体中文。" },
-            score: { type: Type.INTEGER, description: "该特定片段的情绪得分（-100 到 100）。" },
-          },
-          required: ["segmentSummary", "score"],
-        },
-      },
-      politicalAnalysis: {
-        type: Type.OBJECT,
-        description: "基础政治倾向分析 (8values)。",
-        properties: {
-          economic: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "平等 (Equality) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "市场 (Market) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          diplomatic: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "国家 (Nation) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "世界 (World) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          civil: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "自由 (Liberty) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "威权 (Authority) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          societal: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "传统 (Tradition) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "进步 (Progress) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          ideology: { type: Type.STRING, description: "最接近的政治意识形态名称。中文。" }
-        },
-        required: ["economic", "diplomatic", "civil", "societal", "ideology"]
-      },
-      extendedPoliticalAnalysis: {
-        type: Type.OBJECT,
-        description: "深度政治光谱分析 (LeftValues 风格)，包含7个维度。",
-        properties: {
-          revolution: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "革命 (Revolution) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "改良 (Reform) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          scientific: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "科学 (Scientific) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "空想 (Utopian) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          central: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "集权 (Centralization) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "分权 (Decentralization) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          international: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "国际 (Internationalism) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "民族 (Nationalism) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          party: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "党派 (Party) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "工会 (Union) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          production: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "生产 (Production) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "生态 (Ecology) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          conservative: {
-            type: Type.OBJECT,
-            properties: {
-              leftScore: { type: Type.INTEGER, description: "保守 (Conservative) 得分 0-100。" },
-              rightScore: { type: Type.INTEGER, description: "进步 (Progressive) 得分 0-100。" },
-              label: { type: Type.STRING, description: "中文标签。" }
-            },
-            required: ["leftScore", "rightScore", "label"]
-          },
-          closestWorldParty: { type: Type.STRING, description: "世界上最符合该文本政治倾向的现实政党名称（例如：中国共产党、美国民主党、英国工党等）。必须使用简体中文。" },
-          closestWorldPartyReason: { type: Type.STRING, description: "简短说明为什么匹配该政党。" },
-          globalPercentage: { type: Type.INTEGER, description: "估算该政党或其代表的意识形态在世界范围内的支持率、影响力或大致占比（0-100的整数）。" }
-        },
-        required: ["revolution", "scientific", "central", "international", "party", "production", "conservative", "closestWorldParty", "closestWorldPartyReason", "globalPercentage"]
-      }
-    },
-    required: ["overallScore", "sentimentLabel", "emotionalTone", "authorStance", "coreIntent", "summary", "positiveKeyPoints", "negativeKeyPoints", "suggestedResponse", "timeline", "politicalAnalysis", "extendedPoliticalAnalysis"],
-  };
+  // Zhipu keys usually contain a dot (id.secret)
+  if (!apiKey.includes('.')) {
+     console.warn("警告: 您输入的 Key 看起来不像智谱 AI 的 Key (通常格式为 id.secret)。");
+  }
+
+  // 2. Construct the Prompt
+  // Zhipu works best with a clear system instruction and a user message.
+  const systemPrompt = `你是一个高级文本情绪与政治倾向分析引擎。
+请分析用户提供的文本。
+无论原文是什么语言，结果中的所有文本字段**必须**翻译成**简体中文**。
+
+你必须严格只返回有效的 JSON 格式，不要包含 markdown 代码块标记（如 \`\`\`json），不要包含任何额外的解释文字。
+
+输出的 JSON 必须严格符合以下结构：
+${jsonStructure}
+
+关于政治分析的要求：
+1. 即使是商业或日常文本，也要挖掘其潜在价值观（如：注重效率=市场派/科学派，注重情感=传统/社群）。
+2. 如果完全无法判断，请保持中立（50/50）。
+3. extendedPoliticalAnalysis 必须包含完整的 7 个维度 (LeftValues)。
+4. closestWorldParty 必须是现实世界存在的政党名称。`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: modelId,
-      contents: `请深入分析以下文本。无论原文是何种语言，所有返回的字段必须翻译并输出为简体中文。
-      
-      重点要求：
-      1. 准确识别作者的立场和核心意图。
-      2. 进行多维度的政治倾向分析（包含基础 8values 和深度 LeftValues 7轴分析）。即使文本看起来是非政治性的（如商业评论），也请尝试挖掘其潜在的价值观（如：支持市场 vs 支持监管，支持传统 vs 支持创新），如果完全无法判断，请保持中立（50/50）。
-      3. 匹配一个现实世界中的政党，并估算该政党/意识形态在全球范围内的影响力占比。
-      
-      待分析文本：\n${text}`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
+    // 3. Call Zhipu AI API (OpenAI Compatible Endpoint)
+    // Using the GLM-4-Flash model which is fast and cost-effective, or GLM-4 for higher quality
+    const response = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
       },
+      body: JSON.stringify({
+        model: "glm-4-flash", // You can switch to "glm-4" for better reasoning if needed
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        temperature: 0.1, // Low temperature for consistent JSON output
+        top_p: 0.7,
+        max_tokens: 4096
+      })
     });
 
-    const jsonText = response.text;
-    if (!jsonText) {
-      throw new Error("No data returned from API");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Handle specific auth error
+      if (response.status === 401) {
+         throw new Error("API Key 无效或已过期 (401 Unauthorized)。请检查您的 API_KEY 是否正确配置。");
+      }
+
+      throw new Error(`智谱 API 请求失败: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
     }
 
-    return JSON.parse(jsonText) as SentimentAnalysisResult;
-  } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    throw error;
+    const data = await response.json();
+    
+    // 4. Parse the response
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error("API 返回内容为空");
+    }
+
+    // Clean up potential markdown formatting if the model adds it despite instructions
+    const cleanJson = content.replace(/```json\n?|```/g, "").trim();
+
+    try {
+      return JSON.parse(cleanJson) as SentimentAnalysisResult;
+    } catch (e) {
+      console.error("JSON Parse Error:", e);
+      console.log("Raw Content:", content);
+      throw new Error("无法解析 AI 返回的数据格式，请重试。");
+    }
+
+  } catch (error: any) {
+    console.error("Analysis Error:", error);
+    throw new Error(error.message || "分析过程中发生未知错误");
   }
 };

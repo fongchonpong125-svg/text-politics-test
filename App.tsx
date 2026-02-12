@@ -64,9 +64,10 @@ export const App: React.FC = () => {
       const data = await analyzeTextSentiment(inputText);
       setResult(data);
       setStatus(AnalysisStatus.SUCCESS);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMsg("无法分析文本。请检查您的 API 密钥或网络连接，然后重试。");
+      // Display the actual error message returned from the service
+      setErrorMsg(err.message || "无法分析文本。请检查您的 API 密钥或网络连接，然后重试。");
       setStatus(AnalysisStatus.ERROR);
     }
   };
@@ -101,7 +102,7 @@ export const App: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">political stand by <span className="text-indigo-600">FCP</span></h1>
           </div>
           <div className="text-sm text-slate-500 hidden sm:block font-medium">
-            由 Gemini 3 Flash 模型驱动
+            由 智谱 AI (GLM-4) 模型驱动
           </div>
         </div>
       </header>
@@ -154,11 +155,30 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Error Message with Instructions */}
         {status === AnalysisStatus.ERROR && errorMsg && (
-          <div className="bg-rose-50 border border-rose-200 text-rose-700 px-6 py-4 rounded-xl mb-8 flex items-center gap-3 animate-fade-in">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <p>{errorMsg}</p>
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 px-6 py-4 rounded-xl mb-8 flex flex-col gap-2 animate-fade-in break-words shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                 <p className="font-bold text-rose-800 mb-1">分析无法完成</p>
+                 <p>{errorMsg}</p>
+              </div>
+            </div>
+            
+            {(errorMsg.includes('API_KEY') || errorMsg.includes('API Key')) && (
+              <div className="ml-8 mt-2 p-4 bg-white rounded-lg border border-rose-100 text-slate-600 text-sm shadow-inner">
+                <p className="font-bold text-slate-800 mb-2">👉 如何配置 API 密钥：</p>
+                <ol className="list-decimal list-inside space-y-2">
+                  <li>在项目根目录下创建一个名为 <code className="bg-slate-100 px-1.5 py-0.5 rounded text-rose-600 font-mono border border-slate-200">.env</code> 的文件。</li>
+                  <li>将您的智谱 AI 密钥粘贴进去，格式如下：</li>
+                  <div className="bg-slate-800 text-slate-200 p-3 rounded-md font-mono text-xs mt-1 overflow-x-auto whitespace-nowrap">
+                    API_KEY=your_key_here
+                  </div>
+                  <li>保存文件，并<strong>重启开发服务器</strong>以使更改生效。</li>
+                </ol>
+              </div>
+            )}
           </div>
         )}
 
