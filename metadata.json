@@ -1,0 +1,5 @@
+{
+  "name": "SentimentScope",
+  "description": "一个先进的AI驱动的文本情绪分析仪表盘，可以将原始文本转化为可视化的情绪趋势报告，生成中文摘要，并提炼关键的积极与消极观点。",
+  "requestFramePermissions": []
+}
